@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Road Network Reachability Map</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      background-color: #f0f0f5;
+      margin: 0;
+      padding: 0;
+    }
+    #controls { 
+      margin-bottom: 20px; 
+      text-align: center;
+    }
+    #controls h2 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+    #controls div {
+      margin-bottom: 10px;
+    }
+    #graph {
+    border: 1px solid #ccc;
+    width: 600px;
+    height: 600px;
+    position: relative;
+    background-image: url('map.png');
+    background-size: cover;
+    background-position: center;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 5px;
+      font-size: 14px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    input[type="number"] {
+      width: 60px;
+      padding: 5px;
+      font-size: 14px;
+      margin-right: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    /* Styling nodes and links */
+    .node { fill: #ff5733; stroke: #333; stroke-width: 1px; }
+    .node.reachable { fill: #33cc33; }
+    .link { stroke: #333; stroke-width: 2px; opacity: 0.8; }
+  </style>
+</head>
+<body>
+
+<div id="controls">
+  <h2>Road Network Reachability Map</h2>
+  <div>
+    <label>Start Node: <input type="number" id="startNode" min="0" /></label>
+    <label>End Node: <input type="number" id="endNode" min="0" /></label>
+    <button onclick="addRoadUI()">Add Road</button>
+    <button onclick="computeReachability()">Calculate Reachability</button>
+  </div>
+</div>
+
+<div id="graph"></div>
+
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<script>
+  // Initialization
+  const numNodes = 5;
+  let adjacencyMatrix = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
+
+  function addRoad(start, end) {
+    adjacencyMatrix[start][end] = 1;
+    visualizeGraph(adjacencyMatrix);
+  }
+
+  function addRoadUI() {
+    const startNode = parseInt(document.getElementById("startNode").value);
+    const endNode = parseInt(document.getElementById("endNode").value);
+    if (!isNaN(startNode) && !isNaN(endNode) && startNode < numNodes && endNode < numNodes) {
+      addRoad(startNode, endNode);
+    } else {
+      alert("Please enter valid node numbers.");
+    }
+  }
+
+  function computeReachability() {
+    let reach = adjacencyMatrix.map(row => row.slice());  // Clone adjacency matrix for reachability
+    for (let k = 0; k < numNodes; k++) {
+      for (let i = 0; i < numNodes; i++) {
+        for (let j = 0; j < numNodes; j++) {
+          reach[i][j] = reach[i][j] || (reach[i][k] && reach[k][j]);
+        }
+      }
+    }
+    visualizeGraph(reach, true);  // Mark reachable nodes
+  }
+
+  function visualizeGraph(matrix, markReachable = false) {
+    const width = 600, height = 600;
+    document.getElementById("graph").innerHTML = '';  // Clear previous graph
+    const svg = d3.select("#graph").append("svg")
+                  .attr("width", width)
+                  .attr("height", height);
+
+    const nodes = Array.from({ length: numNodes }, (_, i) => ({ id: i }));
+    const links = [];
+    matrix.forEach((row, i) => {
+      row.forEach((val, j) => {
+        if (val) links.push({ source: i, target: j });
+      });
+    });
+
+    const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).distance(120).id(d => d.id))
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+    svg.selectAll("line")
+        .data(links)
+        .enter()
+        .append("line")
+        .attr("class", "link")
+        .style("stroke", markReachable ? "orange" : "#aaa");  // Highlight reachable paths in orange
+
+    svg.selectAll("circle")
+        .data(nodes)
+        .enter()
+        .append("circle")
+        .attr("class", "node")
+        .attr("r", 12)
+        .attr("fill", d => markReachable && d.reachable ? "#33cc33" : "#ff5733");
+
+    svg.selectAll("text")
+        .data(nodes)
+        .enter()
+        .append("text")
+        .attr("dx", 18)
+        .attr("dy", 5)
+        .text(d => `Node ${d.id}`);
+
+    simulation.on("tick", () => {
+      svg.selectAll("line")
+          .attr("x1", d => d.source.x)
+          .attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x)
+          .attr("y2", d => d.target.y);
+      svg.selectAll("circle")
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y);
+      svg.selectAll("text")
+          .attr("x", d => d.x)
+          .attr("y", d => d.y);
+    });
+  }
+
+  // Initial rendering
+  visualizeGraph(adjacencyMatrix);
+</script>
+
+</body>
+</html>
